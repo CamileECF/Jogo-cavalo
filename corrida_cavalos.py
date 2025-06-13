@@ -1,18 +1,18 @@
 import pygame
 import sys
-import threading
 import time
 import random
+import threading
 
 # Inicializa o Pygame
 pygame.init()
 
-# Configurações do relógio
+# Configurações do relógio e FPS
 clock = pygame.time.Clock()
-FPS = 60
+FPS = 60  # Frames por segundo
 
-# Tamanho da janela
-WIDTH, HEIGHT = 800, 600
+# Configurações da janela
+WIDTH, HEIGHT = 800, 600  # Nova resolução visível
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Jogo de Corrida de Cavalos")
 
@@ -26,8 +26,10 @@ BLACK = (0, 0, 0)
 GRAY = (100, 100, 100)
 GREEN = (0, 255, 0)
 
-# Carregamento de imagens
-bg_width_extended = WIDTH * 2
+# Largura real do fundo (para corrida estendida)
+bg_width_extended = 1639
+
+# Carregamento de imagens de fundo com rolagem horizontal
 bg1_frames = [
     pygame.transform.scale(pygame.image.load("cenario/bg1_1.png").convert(), (bg_width_extended, HEIGHT)),
     pygame.transform.scale(pygame.image.load("cenario/bg1_2.png").convert(), (bg_width_extended, HEIGHT))
@@ -36,8 +38,25 @@ bg2_frames = [
     pygame.transform.scale(pygame.image.load("cenario/bg2_1.png").convert(), (bg_width_extended, HEIGHT)),
     pygame.transform.scale(pygame.image.load("cenario/bg2_2.png").convert(), (bg_width_extended, HEIGHT))
 ]
+bg3_frames = [
+    pygame.transform.scale(pygame.image.load("cenario/bg3_1.png").convert(), (bg_width_extended, HEIGHT)),
+    pygame.transform.scale(pygame.image.load("cenario/bg3_2.png").convert(), (bg_width_extended, HEIGHT))
+]
+bg4_frames = [
+    pygame.transform.scale(pygame.image.load("cenario/bg4_1.png").convert(), (bg_width_extended, HEIGHT)),
+    pygame.transform.scale(pygame.image.load("cenario/bg4_2.png").convert(), (bg_width_extended, HEIGHT))
+]
+
+# Cenário inicial
+bg_set_index = 0
 bg_current_frames = bg1_frames
 
+# Transição
+transition_interval = 20  # segundos entre cada transição
+last_transition_time = time.time()
+next_bg_frames = None
+
+# Carregamento de imagens dos cavalos
 player_frames = [
     pygame.image.load("cavalos/player1_1.png").convert_alpha(),
     pygame.image.load("cavalos/player1_2.png").convert_alpha()
@@ -56,6 +75,7 @@ bot2_frames = [
 ]
 bot2_frames = [pygame.transform.scale(img, (img.get_width() // 2, img.get_height() // 2)) for img in bot2_frames]
 
+# Miniaturas para barra de progresso
 player_mini = pygame.transform.scale(pygame.image.load("cavalos/player1_2.png").convert_alpha(), (30, 20))
 bot1_mini = pygame.transform.scale(pygame.image.load("cavalos/bot1_2.png").convert_alpha(), (30, 20))
 bot2_mini = pygame.transform.scale(pygame.image.load("cavalos/bot2_2.png").convert_alpha(), (30, 20))
@@ -66,14 +86,14 @@ player_pos = pygame.Vector2(start_x, 100)
 bot1_pos = pygame.Vector2(start_x, 200)
 bot2_pos = pygame.Vector2(start_x, 300)
 
-bg_offset = 0
+bg_offset = 1  # Alterado para 1 conforme solicitado
 frame_index = 0
 bg_index = 0
 animation_timer = 0
 bg_timer = 0
 ANIMATION_SPEED = 200
 BG_ANIMATION_SPEED = 500
-step_distance = 2
+step_distance = 3
 race_started = False
 player_running = False
 start_time = 0
@@ -82,9 +102,11 @@ transitioning = False
 transition_start_time = 0
 transition_duration = 3
 
+# Semáforos para bots
 bot1_lock = threading.Semaphore()
 bot2_lock = threading.Semaphore()
 
+# Movimento dos bots
 def move_bot_fast(pos, lock):
     while True:
         if player_running:
@@ -112,6 +134,7 @@ def move_bot_medium(pos, lock):
 threading.Thread(target=move_bot_fast, args=(bot1_pos, bot1_lock), daemon=True).start()
 threading.Thread(target=move_bot_medium, args=(bot2_pos, bot2_lock), daemon=True).start()
 
+# Tela inicial
 def mostrar_tela_inicial():
     imagem_original = pygame.image.load("cenario/tela_inicial.png").convert()
     tela_inicial = pygame.transform.scale(imagem_original, (WIDTH, HEIGHT))
@@ -126,7 +149,7 @@ def mostrar_tela_inicial():
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if botao_jogar.collidepoint(event.pos):
                     return
-        pygame.display.update()
+        pygame.display.update() 
 
 def show_countdown():
     for i in range(3, 0, -1):
@@ -141,6 +164,7 @@ def show_countdown():
     pygame.display.flip()
     time.sleep(0.5)
 
+# Barra de progresso
 def draw_progress_bar():
     total_distance = finish_line - start_x
     player_progress = min(max((player_pos.x - start_x) / total_distance, 0), 1)
@@ -179,7 +203,7 @@ while running:
         animation_timer = 0
 
     if bg_timer >= BG_ANIMATION_SPEED:
-        bg_index = (bg_index + 1) % len(bg_current_frames)
+        bg_index = (bg_index + 1) % len(bg_current_frames)  # Alterna entre os frames do cenário atual
         bg_timer = 0
 
     for event in pygame.event.get():
@@ -193,27 +217,42 @@ while running:
                 player_pos.x -= step_distance
                 player_running = True
 
-    bg_offset = player_pos.x * 0.5
+    bg_offset = player_pos.x * 0.8
     bg_offset = min(bg_offset, bg_width_extended - WIDTH)
 
-    if not transitioning and elapsed_time >= 20:
-        transitioning = True
-        transition_start_time = time.time()
+    # Verifica se é hora de mudar de cenário (a cada 20 segundos)
+    current_time = time.time()
+    if current_time - last_transition_time >= transition_interval:
+        if not transitioning:
+            transitioning = True
+            transition_start_time = current_time
+            last_transition_time = current_time
+            
+            # Cicla entre os cenários (agora temos 4 cenários)
+            bg_set_index = (bg_set_index + 1) % 4
+            if bg_set_index == 0:
+                next_bg_frames = bg1_frames
+            elif bg_set_index == 1:
+                next_bg_frames = bg2_frames
+            elif bg_set_index == 2:
+                next_bg_frames = bg3_frames
+            elif bg_set_index == 3:
+                next_bg_frames = bg4_frames
 
     if transitioning:
-        t = (time.time() - transition_start_time) / transition_duration
+        t = (current_time - transition_start_time) / transition_duration
         if t >= 1:
             transitioning = False
-            bg_current_frames = bg2_frames
-            bg1_frames = bg2_frames
-            screen.blit(bg_current_frames[bg_index], (-bg_offset, 0))
+            bg_current_frames = next_bg_frames
+            bg_index = 0  # Reseta o índice para começar com o primeiro frame do novo cenário
         else:
-            surf1 = bg1_frames[bg_index].copy()
-            surf2 = bg2_frames[bg_index].copy()
+            surf1 = bg_current_frames[bg_index].copy()
+            surf2 = next_bg_frames[bg_index].copy()
             surf2.set_alpha(int(255 * t))
             surf1.blit(surf2, (0, 0))
             screen.blit(surf1, (-bg_offset, 0))
     else:
+        # Desenha o frame atual do cenário (alternando entre bgX_1 e bgX_2)
         screen.blit(bg_current_frames[bg_index], (-bg_offset, 0))
 
     draw_progress_bar()
@@ -229,4 +268,3 @@ while running:
     pygame.display.flip()
 
 pygame.quit()
-sys.exit()
