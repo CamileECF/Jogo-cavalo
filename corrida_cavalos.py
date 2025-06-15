@@ -19,6 +19,7 @@ pygame.display.set_caption("Jogo de Corrida de Cavalos")
 # Configurações de fonte
 font = pygame.font.SysFont('Arial', 120)
 small_font = pygame.font.SysFont('Arial', 30)
+result_font = pygame.font.SysFont('Arial', 72)
 
 # Cores
 WHITE = (255, 255, 255)
@@ -46,13 +47,21 @@ bg4_frames = [
     pygame.transform.scale(pygame.image.load("cenario/bg4_1.png").convert(), (bg_width_extended, HEIGHT)),
     pygame.transform.scale(pygame.image.load("cenario/bg4_2.png").convert(), (bg_width_extended, HEIGHT))
 ]
+bg5_frames = [
+    pygame.transform.scale(pygame.image.load("cenario/bg5_1.png").convert(), (bg_width_extended, HEIGHT)),
+    pygame.transform.scale(pygame.image.load("cenario/bg5_2.png").convert(), (bg_width_extended, HEIGHT))
+]
 
 # Cenário inicial
 bg_set_index = 0
 bg_current_frames = bg1_frames
+last_scenario = False  # Flag para indicar quando chegamos no último cenário
 
 # Transição
-transition_interval = 20  # segundos entre cada transição
+# ####################################################################
+# ## ALTERAÇÃO APLICADA AQUI: O intervalo agora é de 10 segundos ##
+# ####################################################################
+transition_interval = 10  # segundos entre cada transição
 last_transition_time = time.time()
 next_bg_frames = None
 
@@ -86,7 +95,7 @@ player_pos = pygame.Vector2(start_x, 100)
 bot1_pos = pygame.Vector2(start_x, 200)
 bot2_pos = pygame.Vector2(start_x, 300)
 
-bg_offset = 1  # Alterado para 1 conforme solicitado
+bg_offset = 1
 frame_index = 0
 bg_index = 0
 animation_timer = 0
@@ -102,6 +111,10 @@ transitioning = False
 transition_start_time = 0
 transition_duration = 3
 
+# Variáveis de controle do jogo
+game_over = False
+result_text = ""
+
 # Semáforos para bots
 bot1_lock = threading.Semaphore()
 bot2_lock = threading.Semaphore()
@@ -109,25 +122,23 @@ bot2_lock = threading.Semaphore()
 # Movimento dos bots
 def move_bot_fast(pos, lock):
     while True:
-        if player_running:
+        if player_running and not game_over:
             time.sleep(random.uniform(0, 0.25))
             with lock:
                 pos.x += random.uniform(2, 4)
-                if pos.x > finish_line:
-                    pos.x = start_x
-                    time.sleep(random.uniform(0.2, 0.8))
+                if pos.x > finish_line and last_scenario and not game_over:
+                    pos.x = finish_line + 10  # Garante que passou da linha
         else:
             time.sleep(0.1)
 
 def move_bot_medium(pos, lock):
     while True:
-        if player_running:
+        if player_running and not game_over:
             time.sleep(random.uniform(0, 0.4))
             with lock:
                 pos.x += random.uniform(1.3, 2.4)
-                if pos.x > finish_line:
-                    pos.x = start_x
-                    time.sleep(random.uniform(0.5, 1.2))
+                if pos.x > finish_line and last_scenario and not game_over:
+                    pos.x = finish_line + 10  # Garante que passou da linha
         else:
             time.sleep(0.1)
 
@@ -186,50 +197,42 @@ show_countdown()
 race_started = True
 player_running = True
 start_time = time.time()
+last_transition_time = time.time() # Reinicia o timer da transição após o countdown
 
 running = True
 while running:
     dt = clock.tick(FPS)
     animation_timer += dt
     bg_timer += dt
-    elapsed_time = time.time() - start_time
-    minutes = int(elapsed_time // 60)
-    seconds = int(elapsed_time % 60)
-    milliseconds = int((elapsed_time % 1) * 1000)
-    time_text = f"{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+    
+    if not game_over:
+        elapsed_time = time.time() - start_time
+        minutes = int(elapsed_time // 60)
+        seconds = int(elapsed_time % 60)
+        milliseconds = int((elapsed_time % 1) * 1000)
+        time_text = f"{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
 
     if animation_timer >= ANIMATION_SPEED:
         frame_index = (frame_index + 1) % len(player_frames)
         animation_timer = 0
 
     if bg_timer >= BG_ANIMATION_SPEED:
-        bg_index = (bg_index + 1) % len(bg_current_frames)  # Alterna entre os frames do cenário atual
+        bg_index = (bg_index + 1) % len(bg_current_frames)
         bg_timer = 0
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN and race_started:
-            if event.key in [pygame.K_SPACE, pygame.K_RIGHT]:
-                player_pos.x += step_distance
-                player_running = True
-            elif event.key == pygame.K_LEFT:
-                player_pos.x -= step_distance
-                player_running = True
 
     bg_offset = player_pos.x * 0.8
     bg_offset = min(bg_offset, bg_width_extended - WIDTH)
 
-    # Verifica se é hora de mudar de cenário (a cada 20 segundos)
+    # Verifica se é hora de mudar de cenário (a cada 10 segundos)
     current_time = time.time()
-    if current_time - last_transition_time >= transition_interval:
+    if not last_scenario and current_time - last_transition_time >= transition_interval and not game_over:
         if not transitioning:
             transitioning = True
             transition_start_time = current_time
             last_transition_time = current_time
             
-            # Cicla entre os cenários (agora temos 4 cenários)
-            bg_set_index = (bg_set_index + 1) % 4
+            # Cicla entre os cenários
+            bg_set_index = (bg_set_index + 1) % 5  # Agora temos 5 cenários
             if bg_set_index == 0:
                 next_bg_frames = bg1_frames
             elif bg_set_index == 1:
@@ -238,6 +241,18 @@ while running:
                 next_bg_frames = bg3_frames
             elif bg_set_index == 3:
                 next_bg_frames = bg4_frames
+            elif bg_set_index == 4:
+                next_bg_frames = bg5_frames
+                last_scenario = True  # Marca que chegamos no último cenário
+
+    # Verifica se algum cavalo chegou ao final (apenas no último cenário)
+    if last_scenario and not game_over:
+        if player_pos.x >= finish_line:
+            game_over = True
+            result_text = "VOCÊ VENCEU!"
+        elif bot1_pos.x >= finish_line or bot2_pos.x >= finish_line:
+            game_over = True
+            result_text = "VOCÊ PERDEU!"
 
     if transitioning:
         t = (current_time - transition_start_time) / transition_duration
@@ -252,12 +267,13 @@ while running:
             surf1.blit(surf2, (0, 0))
             screen.blit(surf1, (-bg_offset, 0))
     else:
-        # Desenha o frame atual do cenário (alternando entre bgX_1 e bgX_2)
         screen.blit(bg_current_frames[bg_index], (-bg_offset, 0))
 
     draw_progress_bar()
-    time_surface = small_font.render(time_text, True, BLACK)
-    screen.blit(time_surface, (WIDTH - time_surface.get_width() - 50, 50))
+    
+    if not game_over:
+        time_surface = small_font.render(time_text, True, BLACK)
+        screen.blit(time_surface, (WIDTH - time_surface.get_width() - 50, 50))
 
     screen.blit(player_frames[frame_index], (player_pos.x - bg_offset, player_pos.y))
     with bot1_lock:
@@ -265,6 +281,61 @@ while running:
     with bot2_lock:
         screen.blit(bot2_frames[frame_index], (bot2_pos.x - bg_offset, bot2_pos.y))
 
+    # Desenha o resultado se o jogo acabou
+    if game_over:
+        # Cria uma superfície semi-transparente para o fundo do texto
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))  # Preto semi-transparente
+        screen.blit(overlay, (0, 0))
+        
+        # Desenha o texto do resultado
+        text_surface = result_font.render(result_text, True, WHITE)
+        text_rect = text_surface.get_rect(center=(WIDTH//2, HEIGHT//2))
+        screen.blit(text_surface, text_rect)
+        
+        # Adiciona instruções para reiniciar
+        restart_text = small_font.render("Pressione R para reiniciar", True, WHITE)
+        restart_rect = restart_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 100))
+        screen.blit(restart_text, restart_rect)
+        
+        # Adiciona instruções para sair
+        quit_text = small_font.render("Pressione ESC para sair", True, WHITE)
+        quit_rect = quit_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 150))
+        screen.blit(quit_text, quit_rect)
+
+    # Processa eventos
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if game_over:
+                if event.key == pygame.K_r:  # Reinicia o jogo
+                    # Reseta todas as variáveis do jogo
+                    game_over = False
+                    result_text = ""
+                    bg_set_index = 0
+                    bg_current_frames = bg1_frames
+                    last_scenario = False
+                    player_pos.x = start_x
+                    bot1_pos.x = start_x
+                    bot2_pos.x = start_x
+                    race_started = True
+                    player_running = True
+                    start_time = time.time()
+                    last_transition_time = time.time()
+                    # Mostra countdown novamente
+                    show_countdown()
+                elif event.key == pygame.K_ESCAPE:
+                    running = False
+            elif race_started and not game_over:
+                if event.key in [pygame.K_SPACE, pygame.K_RIGHT]:
+                    player_pos.x += step_distance
+                    player_running = True
+                elif event.key == pygame.K_LEFT:
+                    player_pos.x -= step_distance
+                    player_running = True
+
     pygame.display.flip()
 
 pygame.quit()
+sys.exit()
