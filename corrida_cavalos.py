@@ -391,10 +391,6 @@ while running:
                 if event.key in [pygame.K_SPACE, pygame.K_RIGHT]:
                     player_pos.x += step_distance
                     player_running = True
-                elif event.key == pygame.K_LEFT:
-                    player_pos.x -= step_distance
-                    player_running = True
-
     pygame.display.flip()
 
 pygame.quit()
