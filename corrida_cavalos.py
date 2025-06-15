@@ -20,12 +20,14 @@ pygame.display.set_caption("Jogo de Corrida de Cavalos")
 font = pygame.font.SysFont('Arial', 120)
 small_font = pygame.font.SysFont('Arial', 30)
 result_font = pygame.font.SysFont('Arial', 72)
+record_font = pygame.font.SysFont('Arial', 40) ### NOVO ###
 
 # Cores
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (100, 100, 100)
 GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0) ### NOVO ###
 
 # Largura real do fundo (para corrida estendida)
 bg_width_extended = 1639
@@ -58,9 +60,6 @@ bg_current_frames = bg1_frames
 last_scenario = False  # Flag para indicar quando chegamos no último cenário
 
 # Transição
-# ####################################################################
-# ## ALTERAÇÃO APLICADA AQUI: O intervalo agora é de 10 segundos ##
-# ####################################################################
 transition_interval = 10  # segundos entre cada transição
 last_transition_time = time.time()
 next_bg_frames = None
@@ -106,6 +105,9 @@ step_distance = 3
 race_started = False
 player_running = False
 start_time = 0
+elapsed_time = 0 ### NOVO ###
+time_text = "00:00.000" ### NOVO ###
+
 
 transitioning = False
 transition_start_time = 0
@@ -114,6 +116,37 @@ transition_duration = 3
 # Variáveis de controle do jogo
 game_over = False
 result_text = ""
+
+# ### NOVO ### - Variáveis de recorde
+RECORDE_FILE = "recorde.txt"
+record_time = float('inf')
+final_time_str = ""
+new_record_achieved = False
+
+# ### NOVO ### - Função para carregar o recorde
+def load_record_time():
+    try:
+        with open(RECORDE_FILE, 'r') as f:
+            return float(f.read())
+    except (FileNotFoundError, ValueError):
+        return float('inf')
+
+# ### NOVO ### - Função para salvar o recorde
+def save_record_time(new_time):
+    with open(RECORDE_FILE, 'w') as f:
+        f.write(str(new_time))
+
+# ### NOVO ### - Função para formatar o tempo
+def format_time(t):
+    if t == float('inf'):
+        return "Nenhum"
+    minutes = int(t // 60)
+    seconds = int(t % 60)
+    milliseconds = int((t % 1) * 1000)
+    return f"{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+
+# Carrega o recorde no início do jogo
+record_time = load_record_time()
 
 # Semáforos para bots
 bot1_lock = threading.Semaphore()
@@ -207,10 +240,7 @@ while running:
     
     if not game_over:
         elapsed_time = time.time() - start_time
-        minutes = int(elapsed_time // 60)
-        seconds = int(elapsed_time % 60)
-        milliseconds = int((elapsed_time % 1) * 1000)
-        time_text = f"{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+        time_text = format_time(elapsed_time) ### NOVO ###
 
     if animation_timer >= ANIMATION_SPEED:
         frame_index = (frame_index + 1) % len(player_frames)
@@ -250,6 +280,13 @@ while running:
         if player_pos.x >= finish_line:
             game_over = True
             result_text = "VOCÊ VENCEU!"
+            final_time_str = time_text ### NOVO ###
+            # ### NOVO ### - Verifica e salva o novo recorde
+            if elapsed_time < record_time:
+                record_time = elapsed_time
+                save_record_time(record_time)
+                new_record_achieved = True
+
         elif bot1_pos.x >= finish_line or bot2_pos.x >= finish_line:
             game_over = True
             result_text = "VOCÊ PERDEU!"
@@ -290,17 +327,36 @@ while running:
         
         # Desenha o texto do resultado
         text_surface = result_font.render(result_text, True, WHITE)
-        text_rect = text_surface.get_rect(center=(WIDTH//2, HEIGHT//2))
+        text_rect = text_surface.get_rect(center=(WIDTH//2, HEIGHT//2 - 100))
         screen.blit(text_surface, text_rect)
+        
+        # ### NOVO ### - Mostra tempo e recorde se o jogador venceu
+        if result_text == "VOCÊ VENCEU!":
+            # Exibe o tempo final
+            your_time_text = small_font.render(f"Seu tempo: {final_time_str}", True, WHITE)
+            your_time_rect = your_time_text.get_rect(center=(WIDTH//2, HEIGHT//2 - 20))
+            screen.blit(your_time_text, your_time_rect)
+
+            # Exibe o recorde
+            record_str = format_time(record_time)
+            record_text_surf = small_font.render(f"Recorde: {record_str}", True, WHITE)
+            record_text_rect = record_text_surf.get_rect(center=(WIDTH//2, HEIGHT//2 + 20))
+            screen.blit(record_text_surf, record_text_rect)
+
+            # Exibe mensagem de novo recorde
+            if new_record_achieved:
+                new_record_surf = record_font.render("NOVO RECORDE!", True, YELLOW)
+                new_record_rect = new_record_surf.get_rect(center=(WIDTH//2, HEIGHT//2 + 70))
+                screen.blit(new_record_surf, new_record_rect)
         
         # Adiciona instruções para reiniciar
         restart_text = small_font.render("Pressione R para reiniciar", True, WHITE)
-        restart_rect = restart_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 100))
+        restart_rect = restart_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 150))
         screen.blit(restart_text, restart_rect)
         
         # Adiciona instruções para sair
         quit_text = small_font.render("Pressione ESC para sair", True, WHITE)
-        quit_rect = quit_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 150))
+        quit_rect = quit_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 200))
         screen.blit(quit_text, quit_rect)
 
     # Processa eventos
@@ -323,8 +379,12 @@ while running:
                     player_running = True
                     start_time = time.time()
                     last_transition_time = time.time()
+                    new_record_achieved = False ### NOVO ###
+                    final_time_str = "" ### NOVO ###
                     # Mostra countdown novamente
                     show_countdown()
+                    # Garante que o tempo reinicie corretamente
+                    start_time = time.time()
                 elif event.key == pygame.K_ESCAPE:
                     running = False
             elif race_started and not game_over:
