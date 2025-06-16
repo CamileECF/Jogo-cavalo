@@ -101,7 +101,7 @@ animation_timer = 0
 bg_timer = 0
 ANIMATION_SPEED = 200
 BG_ANIMATION_SPEED = 500
-step_distance = 3
+step_distance = 4.5
 race_started = False
 player_running = False
 start_time = 0
@@ -182,7 +182,7 @@ threading.Thread(target=move_bot_medium, args=(bot2_pos, bot2_lock), daemon=True
 def mostrar_tela_inicial():
     imagem_original = pygame.image.load("cenario/tela_inicial.png").convert()
     tela_inicial = pygame.transform.scale(imagem_original, (WIDTH, HEIGHT))
-    botao_jogar = pygame.Rect(290, 240, 220, 50)
+    botao_jogar = pygame.Rect(290, 340, 220, 50)
 
     while True:
         screen.blit(tela_inicial, (0, 0))
