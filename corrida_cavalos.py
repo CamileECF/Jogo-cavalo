@@ -20,14 +20,14 @@ pygame.display.set_caption("Jogo de Corrida de Cavalos")
 font = pygame.font.SysFont('Arial', 120)
 small_font = pygame.font.SysFont('Arial', 30)
 result_font = pygame.font.SysFont('Arial', 72)
-record_font = pygame.font.SysFont('Arial', 40) ### NOVO ###
+record_font = pygame.font.SysFont('Arial', 40) 
 
 # Cores
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (100, 100, 100)
 GREEN = (0, 255, 0)
-YELLOW = (255, 255, 0) ### NOVO ###
+YELLOW = (255, 255, 0) 
 
 # Largura real do fundo (para corrida estendida)
 bg_width_extended = 1639
@@ -105,8 +105,8 @@ step_distance = 4.5
 race_started = False
 player_running = False
 start_time = 0
-elapsed_time = 0 ### NOVO ###
-time_text = "00:00.000" ### NOVO ###
+elapsed_time = 0 
+time_text = "00:00.000"
 
 
 transitioning = False
@@ -117,13 +117,13 @@ transition_duration = 3
 game_over = False
 result_text = ""
 
-# ### NOVO ### - Variáveis de recorde
+# Variáveis de recorde
 RECORDE_FILE = "recorde.txt"
 record_time = float('inf')
 final_time_str = ""
 new_record_achieved = False
 
-# ### NOVO ### - Função para carregar o recorde
+#  Função para carregar o recorde
 def load_record_time():
     try:
         with open(RECORDE_FILE, 'r') as f:
@@ -131,12 +131,12 @@ def load_record_time():
     except (FileNotFoundError, ValueError):
         return float('inf')
 
-# ### NOVO ### - Função para salvar o recorde
+# Função para salvar o recorde
 def save_record_time(new_time):
     with open(RECORDE_FILE, 'w') as f:
         f.write(str(new_time))
 
-# ### NOVO ### - Função para formatar o tempo
+# Função para formatar o tempo
 def format_time(t):
     if t == float('inf'):
         return "Nenhum"
@@ -280,8 +280,8 @@ while running:
         if player_pos.x >= finish_line:
             game_over = True
             result_text = "VOCÊ VENCEU!"
-            final_time_str = time_text ### NOVO ###
-            # ### NOVO ### - Verifica e salva o novo recorde
+            final_time_str = time_text
+            #  Verifica e salva o novo recorde
             if elapsed_time < record_time:
                 record_time = elapsed_time
                 save_record_time(record_time)
